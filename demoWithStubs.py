@@ -65,7 +65,7 @@ def getAccessTokenJWT() -> Optional[str]:
         'exp': int(time.time() + 300)  # 300 seconds
     }
 
-    encoded_jwt = jwt.encode(claims, config['Credentials']['ClientSecret'], algorithm='HS256')  # FIXME
+    encoded_jwt = jwt.encode(claims, config['Credentials']['ClientSecret'], algorithm=config['Credentials'].get('JWTAlgorithm', 'HS512'))  # FIXME
 
     # Token request details
     token_data = {
