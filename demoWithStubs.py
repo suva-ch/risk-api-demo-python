@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Any
 import uuid
 import pprint
 import argparse
+import random
 
 log = logging.getLogger()
 
@@ -121,17 +122,21 @@ def main() -> None:
         from openapi_client.api.suva_occupation_codes_api import SuvaOccupationCodesApi
         from openapi_client.models.suva_occupation_code import SuvaOccupationCode
         api = SuvaOccupationCodesApi(api_client=client)
-        res: List[SuvaOccupationCode] = api.get_suva_occupation_codes(**x_headers)
+        res: List[SuvaOccupationCode] = api.get_suva_occupation_codes(**x_headers) # suva list
         log.info('received %i codes', len(res))
-        print(pprint.pformat(object=res, indent=1, width=200))
+        for c in res:
+            print(pprint.pformat(object=json.loads(c.model_dump_json()), indent=1, width=200))
 
     def demoListOperatingUnits() -> None:
         from openapi_client.api.occupation_codes_api import OccupationCodesApi
+        from openapi_client.models.operating_unit_profile import OperatingUnitProfile
 
         api = OccupationCodesApi(api_client=client)
 
         res = api.get_operating_unit_profiles(**x_headers, year=2025)
-        print(res)
+        c : OperatingUnitProfile
+        for c in res:
+            print(pprint.pformat(object=json.loads(c.model_dump_json()), indent=1, width=200))
 
     def demoClearAllEvents()->None:
         from openapi_client.api.events_api import EventsApi
@@ -153,6 +158,34 @@ def main() -> None:
             if e.id is not None:
                 api_ev.acknowledge_event(**x_headers, event_id=e.id)
 
+    def demoActivateSuvaCode() -> None:
+        from openapi_client.api.suva_occupation_codes_api import SuvaOccupationCodesApi
+        from openapi_client.api.occupation_codes_api import OccupationCodesApi
+        from openapi_client.models.suva_occupation_code import SuvaOccupationCode
+        from openapi_client.models.occupation_code_activation import OccupationCodeActivation
+        from openapi_client.models.occupation_code import OccupationCode
+
+        api_list = SuvaOccupationCodesApi(api_client=client)
+        res_list: List[SuvaOccupationCode] = api_list.get_suva_occupation_codes(**x_headers)
+        log.info('received %i codes', len(res_list))
+        code = res_list[random.randint(0, len(res_list)-1)]
+        log.info('code=%s description=%s', code.id, code.descriptions[0].model_dump_json())
+
+        api_oc = OccupationCodesApi(api_client=client)
+        activate_code = OccupationCodeActivation(suvaOccupationCodeId=code.id)
+        res_activate = api_oc.activate_occupation_code(occupation_code_activation=activate_code, **x_headers)
+        print(pprint.pformat(object=json.loads(res_activate.model_dump_json()), indent=1, width=200))
+
+    def demoInActivateCode() -> None:
+        from openapi_client.api.occupation_codes_api import OccupationCodesApi
+        from openapi_client.models.occupation_code import OccupationCode
+
+        api_oc = OccupationCodesApi(api_client=client)
+
+        codes : List[OccupationCode] = api_oc.get_occupation_codes(**x_headers)
+        for c in codes:
+            print(pprint.pformat(object=json.loads(c.model_dump_json()), indent=1, width=200))
+
     def demoSubmitOccupationCode() -> None:
         from openapi_client.api.occupation_codes_api import OccupationCodesApi
         from openapi_client.api.events_api import EventsApi
@@ -168,7 +201,7 @@ def main() -> None:
         api_ev = EventsApi(api_client=client)
 
         # submit new event
-        desc = OccupationDescription(language=Language.DE, gender=Gender.MALE, value='Zauberlehrling')
+        desc = OccupationDescription(language=Language.DE, gender=Gender.MALE, value='Lebkuchenhausbauer') 
         
         code_uuid = str(uuid.uuid5(namespace=MY_UUID_NAMESPACE, name=desc.value)) # generate UUID from string
 
@@ -178,7 +211,7 @@ def main() -> None:
                                     descriptions=[desc])
         try:
             res = api_oc.submit_occupation_code(**x_headers, submit_occupation_code=code)
-            print(res)
+            print(pprint.pformat(object=json.loads(res.model_dump_json()), indent=1, width=200))
         except NotFoundException as nfe:
             body = json.loads(str(nfe.body))
             log.error('NotFoundException:%s', body['message'])
@@ -209,6 +242,8 @@ def main() -> None:
     demo_commands = {
         'ListaOccupationCodes': demoListaOccupationCodes,
         'ListOperatingUnits': demoListOperatingUnits, # not implemented yet
+        'ActivateSuvaCode': demoActivateSuvaCode,
+        'InActivateCode': demoInActivateCode,
         'ClearAllEvents': demoClearAllEvents,
         'SubmitOccupationCode': demoSubmitOccupationCode,
     }
