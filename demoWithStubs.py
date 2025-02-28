@@ -133,10 +133,22 @@ def main() -> None:
 
         api = OccupationCodesApi(api_client=client)
 
-        res = api.get_operating_unit_profiles(**x_headers, year=2025)
+        year = 2026
+        res = api.get_operating_unit_profiles(**x_headers, year=year)
         c : OperatingUnitProfile
+        print(f'>> {year} <<')
         for c in res:
-            print(pprint.pformat(object=json.loads(c.model_dump_json()), indent=1, width=200))
+            print('business_unit:' + c.business_unit_code)
+
+            # ignore all MyPy warnings for the print block...
+            print('  isco:', ','.join(map(str, c.isco_occupation_type_ids))) # type: ignore[arg-type, union-attr]
+            for tmp in c.temporal_profiles: # type: ignore[arg-type, union-attr]
+                print(f'  ={tmp.var_from} - {tmp.upto}') # type: ignore[arg-type, union-attr]
+                print(f'  ={tmp.descriptions[0].value} ({tmp.subclass_section})') # type: ignore[arg-type, union-attr]
+                print(f'  =BU={tmp.premiums.occupational_accident_insurance}') # type: ignore[arg-type, union-attr]
+                print(f'  =NU={tmp.premiums.non_occupational_accident_insurance}') # type: ignore[arg-type, union-attr]
+
+            #print(pprint.pformat(object=json.loads(c.model_dump_json()), indent=1, width=200))
 
     def demoClearAllEvents()->None:
         from openapi_client.api.events_api import EventsApi
@@ -241,7 +253,7 @@ def main() -> None:
 
     demo_commands = {
         'ListaOccupationCodes': demoListaOccupationCodes,
-        'ListOperatingUnits': demoListOperatingUnits, # not implemented yet
+        'ListOperatingUnits': demoListOperatingUnits,
         'ActivateSuvaCode': demoActivateSuvaCode,
         'InActivateCode': demoInActivateCode,
         'ClearAllEvents': demoClearAllEvents,
