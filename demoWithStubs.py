@@ -1,7 +1,7 @@
 # demo with generated OpenAPI stubs
 # generate with:
-# wget -O openapi-generator-cli-7.10.0.jar https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.10.0/openapi-generator-cli-7.10.0.jar
-# java -jar openapi-generator-cli-7.10.0.jar generate -i https://raw.githubusercontent.com/suva-ch/risk-api/refs/heads/main/berufscode-api.yaml -g python -o gen -p useOneOfDiscriminatorLookup=true
+# wget -O openapi-generator-cli-7.12.0.jar https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.13.0/openapi-generator-cli-7.12.0.jar
+# java -jar openapi-generator-cli-7.12.0.jar generate -i https://raw.githubusercontent.com/suva-ch/risk-api/refs/heads/main/berufscode-api.yaml -g python -o gen -p useOneOfDiscriminatorLookup=true
 
 import pathlib
 
@@ -97,7 +97,6 @@ def getAccessTokenJWT() -> Optional[str]:
         log.exception('Failed to retrieve token')
         return None
 
-
 def main() -> None:
     config_file = pathlib.Path('config.ini')
     if not config_file.exists(): raise Exception('config.ini is missing')
@@ -118,7 +117,17 @@ def main() -> None:
         'x_client_version': config['Client']['X-Client-Version'],
     }
 
-    def demoListaOccupationCodes() -> None:
+    def dumpUserinfo() -> None:
+        print(api_config.access_token)
+        response = requests.get(config['Credentials']['UserInfoURL'],
+                            headers={
+                                'User-Agent': config['Client']['User-Agent'],
+                                'Authorization': 'Bearer ' + str(api_config.access_token)
+                                }
+                            )
+        print(response.json())
+
+    def demoListaSuvaOccupationCodes() -> None:
         from openapi_client.api.suva_occupation_codes_api import SuvaOccupationCodesApi
         from openapi_client.models.suva_occupation_code import SuvaOccupationCode
         api = SuvaOccupationCodesApi(api_client=client)
@@ -127,18 +136,31 @@ def main() -> None:
         for c in res:
             print(pprint.pformat(object=json.loads(c.model_dump_json()), indent=1, width=200))
 
-    def demoListOperatingUnits() -> None:
+    def demoListaMyOccupationCodes() -> None:
+
         from openapi_client.api.occupation_codes_api import OccupationCodesApi
-        from openapi_client.models.operating_unit_profile import OperatingUnitProfile
+        from openapi_client.models.occupation_code import OccupationCode
 
         api = OccupationCodesApi(api_client=client)
+        res : List[OccupationCode] = api.get_occupation_codes(**x_headers)
+
+        log.info('received %i codes', len(res))
+        for c in res:
+            print(pprint.pformat(object=json.loads(c.model_dump_json()), indent=1, width=200))
+
+
+    def demoListCompanyPartProfile() -> None:
+        from openapi_client.api.company_parts_api import CompanyPartsApi
+        from openapi_client.models.company_part_profile import CompanyPartProfile
+
+        api = CompanyPartsApi(api_client=client)
 
         year = 2026
-        res = api.get_operating_unit_profiles(**x_headers, year=year)
-        c : OperatingUnitProfile
+        res = api.get_company_part_profiles(**x_headers, year=year)
+        c : CompanyPartProfile
         print(f'>> {year} <<')
         for c in res:
-            print('business_unit:' + c.business_unit_code)
+            print('business_unit:' + c.company_part_code)
 
             # ignore all MyPy warnings for the print block...
             print('  isco:', ','.join(map(str, c.isco_occupation_type_ids))) # type: ignore[arg-type, union-attr]
@@ -217,8 +239,8 @@ def main() -> None:
         
         code_uuid = str(uuid.uuid5(namespace=MY_UUID_NAMESPACE, name=desc.value)) # generate UUID from string
 
-        code = SubmitOccupationCode(occupationCodeNr1=code_uuid, 
-                                    occupationCodeNr2=code_uuid, 
+        code = SubmitOccupationCode(occupationCodeNumber1=code_uuid, 
+                                    occupationCodeNumber2=code_uuid, 
                                     preferredLanguage=Language.DE, 
                                     descriptions=[desc])
         try:
@@ -252,8 +274,10 @@ def main() -> None:
         log.info('response=%s', response.occupation)
 
     demo_commands = {
-        'ListaOccupationCodes': demoListaOccupationCodes,
-        'ListOperatingUnits': demoListOperatingUnits,
+        'DumpUserinfo': dumpUserinfo,
+        'ListaSuvaOccupationCodes': demoListaSuvaOccupationCodes,
+        'ListaMyOccupationCodes': demoListaMyOccupationCodes,
+        'ListCompanyPartProfile': demoListCompanyPartProfile, # not implemented 2025-05-14
         'ActivateSuvaCode': demoActivateSuvaCode,
         'InActivateCode': demoInActivateCode,
         'ClearAllEvents': demoClearAllEvents,
